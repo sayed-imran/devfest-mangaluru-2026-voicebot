@@ -1,0 +1,25 @@
+services:
+  stt:
+    image: vllm/vllm-openai:latest
+    container_name: voicebot-stt
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    ports:
+      - "8001:8000"
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        pip install --no-cache-dir soundfile av soxr
+        exec vllm serve openai/whisper-large-v3-turbo --gpu-memory-utilization 0.10 --max-model-len 448 --trust-remote-code
+    restart: unless-stopped

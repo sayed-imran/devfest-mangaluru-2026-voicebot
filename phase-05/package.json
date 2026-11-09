@@ -1,0 +1,30 @@
+{
+  "name": "phase-05",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "assets": "node scripts/copy-vad-assets.mjs",
+    "postinstall": "node scripts/copy-vad-assets.mjs",
+    "dev": "next dev --port 3004",
+    "build": "next build",
+    "start": "next start --port 3004",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@ricky0123/vad-react": "^0.0.37",
+    "@ricky0123/vad-web": "^0.0.31",
+    "next": "16.4.0",
+    "onnxruntime-web": "^1.30.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.0",
+    "typescript": "^5"
+  }
+}
