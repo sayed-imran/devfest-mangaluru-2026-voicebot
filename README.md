@@ -41,6 +41,18 @@ Mic ─▶ Silero VAD ─▶ speech to text ─▶ Gemma 4 ─▶ tools (MCP) �
 
 ## Before the workshop
 
+**Fastest:** follow <https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/>. One command installs
+nvm + Node, Python, clones this repo and does all the downloads below:
+
+```bash
+curl -fsSL https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/setup.sh | bash       # macOS / Linux / WSL
+```
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/setup.ps1 | iex"   # Windows
+```
+
+Or by hand:
+
 1. **Node 20+**. Add **Python 3.10+** if you want to do phase 05 (tools).
 2. **Clone and run `npm install` once at the repo root, on wifi, beforehand.** That is the only download.
    The phases are npm workspaces, so this single install fills one shared `node_modules` for all five.

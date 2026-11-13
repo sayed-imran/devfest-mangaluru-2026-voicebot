@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workshop Setup · Hey Gemma, No Internet</title>
+<meta name="description" content="One command to get your laptop ready for the DevFest Mangaluru 2026 voice assistant workshop: nvm, Node.js, Python and the workshop repo.">
+<style>
+  :root {
+    --g-blue: #4285f4; --g-red: #ea4335; --g-yellow: #fbbc04; --g-green: #34a853;
+    --primary: #1a73e8; --primary-tonal: #e8f0fe;
+    --ground: #f8f9fa; --surface: #ffffff; --ink: #202124; --muted: #5f6368;
+    --line: #dadce0; --code-bg: #202124; --code-ink: #e8eaed; --code-muted: #9aa0a6;
+    --ok: #137333; --warn-tonal: #fef7e0; --warn-ink: #7a4100;
+    --radius: 20px;
+    --font-sans: "Google Sans", "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "Roboto Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --primary: #8ab4f8; --primary-tonal: #1f2a3c;
+      --ground: #131314; --surface: #1e1f20; --ink: #e3e3e3; --muted: #9aa0a6;
+      --line: #3c4043; --code-bg: #0b0b0c; --ok: #81c995; --warn-tonal: #3a2f12; --warn-ink: #fdd663;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --primary: #8ab4f8; --primary-tonal: #1f2a3c;
+    --ground: #131314; --surface: #1e1f20; --ink: #e3e3e3; --muted: #9aa0a6;
+    --line: #3c4043; --code-bg: #0b0b0c; --ok: #81c995; --warn-tonal: #3a2f12; --warn-ink: #fdd663;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 16px/1.6 var(--font-sans);
+  }
+  .stripe { height: 6px; background: linear-gradient(90deg,
+    var(--g-blue) 0 25%, var(--g-red) 25% 50%, var(--g-yellow) 50% 75%, var(--g-green) 75%); }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+
+  .eyebrow { font: 600 13px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.1; margin: 12px 0 12px; letter-spacing: -.02em; }
+  .lede { color: var(--muted); font-size: 18px; margin: 0 0 32px; max-width: 60ch; }
+  h2 { font-size: 20px; margin: 40px 0 12px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    font: 500 14px/1 var(--font-sans); color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--primary-tonal); border-color: transparent; color: var(--primary); }
+  .tab:focus-visible, .copy:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .hint { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+  .cmd {
+    position: relative; background: var(--code-bg); color: var(--code-ink);
+    border-radius: 14px; padding: 16px 92px 16px 16px;
+    font: 14px/1.6 var(--font-mono); overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .cmd .p { color: var(--code-muted); user-select: none; }
+  .copy {
+    position: absolute; top: 10px; right: 10px;
+    font: 500 13px/1 var(--font-sans); color: var(--code-ink); background: #3c4043;
+    border: 0; border-radius: 999px; padding: 9px 14px; cursor: pointer;
+  }
+  .copy:hover { background: #5f6368; }
+  .copy.done { background: var(--g-green); color: #fff; }
+  .small { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+  .small a, .small code { color: inherit; }
+
+  ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; display: grid; gap: 12px; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: start; }
+  ol.steps li::before {
+    content: counter(s); width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center; font: 600 14px/1 var(--font-mono); color: #fff;
+  }
+  ol.steps li:nth-child(4n+1)::before { background: var(--g-blue); }
+  ol.steps li:nth-child(4n+2)::before { background: var(--g-red); }
+  ol.steps li:nth-child(4n+3)::before { background: #e37400; }
+  ol.steps li:nth-child(4n+4)::before { background: var(--g-green); }
+  ol.steps strong { display: block; }
+  ol.steps span { color: var(--muted); font-size: 15px; }
+
+  code { font-family: var(--font-mono); font-size: .9em; }
+  :not(pre) > code { background: var(--primary-tonal); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+
+  .note { background: var(--warn-tonal); color: var(--warn-ink); border-radius: 14px; padding: 14px 16px; font-size: 15px; margin-top: 16px; }
+
+  details { border-top: 1px solid var(--line); padding: 14px 0; }
+  details:last-child { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; font-weight: 500; overflow-wrap: anywhere; }
+  details p, details pre { margin: 10px 0 0; color: var(--muted); font-size: 15px; }
+  details pre { background: var(--code-bg); color: var(--code-ink); padding: 12px 14px; border-radius: 12px; overflow-x: auto; font: 13px/1.6 var(--font-mono); }
+
+  footer { margin-top: 48px; color: var(--muted); font-size: 14px; }
+  footer a { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="stripe" aria-hidden="true"></div>
+<main>
+  <div class="eyebrow">DevFest Mangaluru 2026 · Workshop setup</div>
+  <h1>Hey Gemma, No Internet</h1>
+  <p class="lede">Run one command at home on wifi before the workshop. It installs everything your laptop needs,
+    so on the day you only run <code>npm run dev</code>.</p>
+
+  <section class="card" aria-labelledby="run">
+    <div class="tabs" role="tablist" aria-label="Operating system">
+      <button class="tab" role="tab" id="tab-unix" aria-controls="panel-unix" aria-selected="true">macOS / Linux</button>
+      <button class="tab" role="tab" id="tab-win" aria-controls="panel-win" aria-selected="false">Windows</button>
+    </div>
+
+    <div id="panel-unix" role="tabpanel" aria-labelledby="tab-unix">
+      <p class="hint" id="run">Open <strong>Terminal</strong> and paste:</p>
+      <div class="cmd"><span class="p">$ </span><span class="c">curl -fsSL https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/setup.sh | bash</span><button class="copy" type="button">Copy</button></div>
+      <p class="small">Works on macOS, Linux and WSL. Nothing needs <code>sudo</code>.
+        <a href="setup.sh">Read the script first</a></p>
+    </div>
+
+    <div id="panel-win" role="tabpanel" aria-labelledby="tab-win" hidden>
+      <p class="hint">Open <strong>PowerShell</strong> (Start menu → type “PowerShell”) and paste:</p>
+      <div class="cmd"><span class="p">PS&gt; </span><span class="c">powershell -ExecutionPolicy Bypass -c "irm https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/setup.ps1 | iex"</span><button class="copy" type="button">Copy</button></div>
+      <p class="small">Windows 10/11 with winget. Click <strong>Yes</strong> on the permission prompts for nvm and Node.
+        <a href="setup.ps1">Read the script first</a></p>
+    </div>
+  </section>
+
+  <h2>What it does</h2>
+  <ol class="steps">
+    <li><div><strong>nvm + Node.js 24 LTS</strong><span>Node Version Manager, so the workshop's Node version doesn't touch your other projects.</span></div></li>
+    <li><div><strong>Python 3.10+</strong><span>Keeps the Python you have if it's new enough. Otherwise installs Python 3.12 (uv on macOS/Linux, winget on Windows).</span></div></li>
+    <li><div><strong>The workshop repo</strong><span>Clones it into <code>~/devfest-mangaluru-2026-voicebot</code> and runs a single <code>npm install</code> for all five phases.</span></div></li>
+    <li><div><strong>Phase 05 Python packages</strong><span>Pre-installs the tools service's packages into a <code>.venv</code>, so phase 05 works offline too.</span></div></li>
+  </ol>
+  <div class="note">You can run it again any time: steps that are already done get skipped. When it says <strong>All set</strong>,
+    open a <strong>new</strong> terminal window so it picks up nvm.</div>
+
+  <h2>Check it worked</h2>
+  <div class="cmd"><span class="c">cd ~/devfest-mangaluru-2026-voicebot/phase-01
+npm run dev</span><button class="copy" type="button">Copy</button></div>
+  <p class="small">Open <a href="http://localhost:3000">http://localhost:3000</a>, click <strong>Start listening</strong>, allow the microphone and say something:
+    the speech meter should move. The Spark services in the header stay red until you're on the workshop network. That's expected at home.</p>
+
+  <h2>If something goes wrong</h2>
+  <details>
+    <summary>macOS: “xcode-select: note: install requested…”</summary>
+    <p>git needs Apple's Command Line Tools. Finish the installer window that opened, then run the command again.</p>
+  </details>
+  <details>
+    <summary><code>nvm: command not found</code> / <code>node: command not found</code></summary>
+    <p>Your current terminal started before nvm was installed. Open a new terminal window. If that doesn't help, run:</p>
+    <pre>source ~/.nvm/nvm.sh &amp;&amp; nvm use 24</pre>
+  </details>
+  <details>
+    <summary>Windows: “running scripts is disabled on this system”</summary>
+    <p>The script fixes this for your user. If your company laptop blocks it, use <code>npm.cmd</code> instead of <code>npm</code>, e.g. <code>npm.cmd run dev</code>.</p>
+  </details>
+  <details>
+    <summary>Windows: <code>nvm use</code> fails or Node still shows an old version</summary>
+    <p>An older Node.js installed from nodejs.org gets in nvm's way. Uninstall “Node.js” from Settings → Apps, then run the command again.</p>
+  </details>
+  <details>
+    <summary>Install it somewhere else, or only install the tools</summary>
+    <pre>curl -fsSL https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/setup.sh | DEVFEST_DIR=~/code/devfest bash
+curl -fsSL https://sayed-imran.github.io/devfest-mangaluru-2026-voicebot/setup.sh | SKIP_REPO=1 bash</pre>
+    <p>On Windows, set <code>$env:DEVFEST_DIR</code> or <code>$env:SKIP_REPO = "1"</code> before pasting the command.</p>
+  </details>
+
+  <footer>
+    Bring headphones: thirty laptops talking out loud is a lot.
+    Code: <a href="https://github.com/sayed-imran/devfest-mangaluru-2026-voicebot">github.com/sayed-imran/devfest-mangaluru-2026-voicebot</a>
+  </footer>
+</main>
+<script>
+  const tabs = [...document.querySelectorAll('.tab')];
+  function select(tab) {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    }
+  }
+  tabs.forEach(t => t.addEventListener('click', () => select(t)));
+  if (/Win/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent)) {
+    select(document.getElementById('tab-win'));
+  }
+
+  document.querySelectorAll('.copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.parentElement.querySelector('.c').textContent;
+      try { await navigator.clipboard.writeText(text); }
+      catch {
+        const r = document.createRange(); r.selectNodeContents(btn.parentElement.querySelector('.c'));
+        const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); s.removeAllRanges();
+      }
+      btn.textContent = 'Copied'; btn.classList.add('done');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1600);
+    });
+  });
+</script>
+</body>
+</html>
