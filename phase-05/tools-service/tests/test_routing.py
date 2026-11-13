@@ -16,6 +16,15 @@ COMMANDS = [
     "I want to watch some funny cat videos",
     "can you pull up the latest news?",
     "show me directions to the airport",
+    "Get me direction to Mangalore Airport for my current location.",
+    "get me directions to mangalore airport",
+    "give me the route to panambur beach",
+    "find the way to the railway station",
+    "show me the way to St. Aloysius Chapel",
+    "directions to the bus stand",
+    "direction from Hampankatta to Kadri temple",
+    "navigate me to the nearest petrol pump",
+    "route me to Surathkal",
     "show me cat videos on youtube",
     "open calculator",
     "look up python tutorials",
@@ -32,12 +41,14 @@ CHATS = [
     "who won the world cup in 2022",
     "how are you doing today",
     "what did I ask you before?",
+    "what is the best way to learn rust",
 ]
 UNDECIDED = [
     "write me an essay about climate change",
     "can you help me write a poem about rain",
     "find me a video on how to tie a tie",
     "how do I open a new tab in chrome?",
+    "give me some directions on how to write a cover letter",
     "explain how youtube's recommendation algorithm works",
 ]
 

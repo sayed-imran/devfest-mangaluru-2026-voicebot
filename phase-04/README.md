@@ -68,7 +68,7 @@ NEXT_PUBLIC_TTS_REVEAL_LAG_MS=140   # raise if text still leads speech
 
 LAYA_BASE_URL=http://spark-065b.local:8002 # empty = skip Laya, use the heuristic
 LAYA_TIMEOUT_MS=2500
-LAYA_SPEAK_THRESHOLD=0.7
+LAYA_SPEAK_THRESHOLD=0.5            # Laya detail score ≥ this → handoff
 ```
 
 Other Kokoro voices work through `TTS_VOICE` (`am_fenrir`, `af_heart`, or blends like

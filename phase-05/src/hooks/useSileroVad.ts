@@ -85,6 +85,10 @@ export function useSileroVad(
 
         const vad = await MicVAD.new({
           model: "v5",
+          // vad-web defaults to startOnLoad: true, which starts listening (and sending
+          // segments) the moment the page loads, regardless of the UI's mic state or
+          // voice mode. Only start() may open the mic.
+          startOnLoad: false,
           baseAssetPath: ASSET_PATH,
           onnxWASMBasePath: ASSET_PATH,
           processorType: "ScriptProcessor",

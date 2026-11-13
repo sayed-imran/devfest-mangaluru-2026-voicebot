@@ -2,6 +2,7 @@
 
 import MarkdownContent from "@/components/MarkdownContent";
 import { useSileroVad, type SpeechSegment } from "@/hooks/useSileroVad";
+import { usePushToTalk } from "@/hooks/usePushToTalk";
 import {
   checkToolsHealth,
   runAgent,
@@ -125,6 +126,8 @@ export default function ChatApp() {
   const listeningRef = useRef(false);
   const wasListeningRef = useRef(false);
   const holdPressedRef = useRef(false);
+  /** Auto mode only: the user switched the mic off with the Mic button. */
+  const autoMicOffRef = useRef(false);
   const voiceModeRef = useRef<VoiceMode>("auto");
   const lastSpokenRef = useRef("");
 
@@ -152,13 +155,11 @@ export default function ChatApp() {
     };
   }, []);
 
+  // Persist only on an explicit user choice (changeVoiceMode). Writing here would save
+  // the initial "auto" before the stored choice is read, and React's dev-mode double
+  // effects then read that back: the page silently reverted to Auto on every reload.
   useEffect(() => {
     voiceModeRef.current = voiceMode;
-    try {
-      window.localStorage.setItem(VOICE_MODE_KEY, voiceMode);
-    } catch {
-      // ignore quota / private mode
-    }
   }, [voiceMode]);
 
   const pushLabel = isPhone ? "Hold mic" : "Space";
@@ -263,7 +264,9 @@ export default function ChatApp() {
   }, []);
 
   const resumeMicAfterSpeech = useCallback(async () => {
-    // No-op when we no longer pause for TTS; keep listening continuous.
+    // Only Auto mode listens continuously. In push-to-talk the mic must stay off until
+    // Space / the mic button is held again, even if it was live when this reply started.
+    if (voiceModeRef.current !== "auto") return;
     if (!wasListeningRef.current) return;
     if (listeningRef.current) return;
     try {
@@ -834,10 +837,14 @@ export default function ChatApp() {
     [sendText, setBusyState],
   );
 
-  const vad = useSileroVad(
-    { onSegment },
-    { submitUserSpeechOnPause: isPushToTalk },
-  );
+  // Auto mode: Silero VAD decides when an utterance starts and ends.
+  const vad = useSileroVad({ onSegment });
+  // Push-to-talk (Space / hold mic): a plain recorder, no VAD. Whatever is heard while
+  // held is sent as one clip on release.
+  const ptt = usePushToTalk({ enabled: isPushToTalk });
+  // Stable functions only: the hook returns a fresh object each render, and depending on
+  // it would recreate the hold handlers on every render.
+  const { start: pttStart, stop: pttStop, recording: pttRecording } = ptt;
 
   useEffect(() => {
     vadPauseRef.current = vad.pause;
@@ -845,33 +852,80 @@ export default function ChatApp() {
     listeningRef.current = vad.listening;
   }, [vad.pause, vad.start, vad.listening]);
 
+  // Auto mode means "always listening": open the mic as soon as the VAD is ready, and
+  // again when switching back from push-to-talk, unless the user turned it off with the
+  // Mic button. (The VAD no longer starts itself on page load; see useSileroVad.)
+  const vadStart = vad.start;
+  useEffect(() => {
+    if (voiceMode !== "auto" || !vad.ready || vad.listening) return;
+    if (autoMicOffRef.current) return;
+    void vadStart();
+  }, [voiceMode, vad.ready, vad.listening, vadStart]);
+
+  const toggleAutoMic = useCallback(() => {
+    autoMicOffRef.current = vad.listening;
+    void vad.toggle();
+  }, [vad]);
+
   const beginHold = useCallback(async () => {
-    if (!vad.ready || vad.loading || vad.errored) return;
     holdPressedRef.current = true;
     setHolding(true);
-    await vad.start();
-    // Released before mic finished starting — stop and flush nothing useful.
-    if (!holdPressedRef.current) {
-      await vad.pause();
+    try {
+      await pttStart();
+    } catch (error) {
+      holdPressedRef.current = false;
       setHolding(false);
-    }
-  }, [vad.ready, vad.loading, vad.errored, vad.start, vad.pause]);
-
-  const endHold = useCallback(async () => {
-    if (!holdPressedRef.current && !vad.listening) {
-      setHolding(false);
+      setStatusHint(
+        `Mic error · ${error instanceof Error ? error.message : String(error)}`,
+      );
       return;
     }
+    // Released before the mic finished opening: discard.
+    if (!holdPressedRef.current) {
+      pttStop();
+      setHolding(false);
+    }
+  }, [pttStart, pttStop]);
+
+  const endHold = useCallback(async () => {
+    const wasHolding = holdPressedRef.current;
     holdPressedRef.current = false;
     setHolding(false);
-    await vad.pause();
-  }, [vad.listening, vad.pause]);
+    if (!wasHolding) return;
+    const clip = pttStop();
+    if (clip) {
+      void onSegment(clip);
+    } else {
+      setStatusHint("Hold a little longer to talk.");
+    }
+  }, [pttStop, onSegment]);
+
+  // Latest handlers for the key / pointer listeners. Subscribing with the handlers
+  // themselves re-ran the listener effect on every render, and its cleanup ended the
+  // hold the instant it began.
+  const beginHoldRef = useRef(beginHold);
+  const endHoldRef = useRef(endHold);
+  useEffect(() => {
+    beginHoldRef.current = beginHold;
+    endHoldRef.current = endHold;
+  }, [beginHold, endHold]);
 
   const changeVoiceMode = useCallback(
     (next: VoiceMode) => {
       if (next === voiceModeRef.current) return;
+      // Choosing Auto means "listen", even if the mic was switched off earlier.
+      autoMicOffRef.current = false;
+      voiceModeRef.current = next;
+      try {
+        window.localStorage.setItem(VOICE_MODE_KEY, next);
+      } catch {
+        // ignore quota / private mode
+      }
+      // Forget "mic was on before Gemma spoke", so a reply in flight can't re-open it.
+      wasListeningRef.current = false;
       holdPressedRef.current = false;
       setHolding(false);
+      pttStop();
       void vad.pause();
       setVoiceMode(next);
       const hint =
@@ -880,7 +934,7 @@ export default function ChatApp() {
           : pushHint;
       setStatusHint(hint);
     },
-    [vad.pause, pushHint],
+    [vad.pause, pttStop, pushHint],
   );
 
   // Desktop Space push-to-talk (ignored while typing in the composer).
@@ -892,18 +946,18 @@ export default function ChatApp() {
       if (isEditableTarget(event.target)) return;
       if (event.repeat) return;
       event.preventDefault();
-      void beginHold();
+      void beginHoldRef.current();
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code !== "Space") return;
       if (isEditableTarget(event.target)) return;
       event.preventDefault();
-      void endHold();
+      void endHoldRef.current();
     };
 
     const onBlur = () => {
-      void endHold();
+      void endHoldRef.current();
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -913,9 +967,9 @@ export default function ChatApp() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
-      void endHold();
+      void endHoldRef.current();
     };
-  }, [useSpaceHold, beginHold, endHold]);
+  }, [useSpaceHold]);
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -933,25 +987,16 @@ export default function ChatApp() {
   };
 
   const micLabel = useMemo(() => {
+    // Push-to-talk does not use the VAD, so its state does not matter here.
+    if (useMicHold) {
+      return holding ? "Recording · release to send" : "Hold mic to talk";
+    }
+    if (useSpaceHold) {
+      return holding ? "Recording · release Space to send" : "Hold Space to talk";
+    }
     if (vad.loading) return "Loading mic…";
     if (vad.errored) return "Mic error";
     if (!vad.ready) return "Mic unavailable";
-    if (useMicHold) {
-      if (holding || vad.listening) {
-        return vad.userSpeaking
-          ? "Holding · speaking"
-          : "Holding · release to send";
-      }
-      return "Hold mic to talk";
-    }
-    if (useSpaceHold) {
-      if (holding || vad.listening) {
-        return vad.userSpeaking
-          ? "Holding Space · speaking"
-          : "Holding Space · release to send";
-      }
-      return "Hold Space to talk";
-    }
     if (vad.listening && vad.userSpeaking) return "Listening · speaking";
     if (vad.listening) return "Listening";
     return "Voice off";
@@ -978,11 +1023,12 @@ export default function ChatApp() {
           : micLabel;
 
   const micLive = vad.listening || holding || busy === "speaking";
-  const micDisabled =
-    vad.loading ||
-    Boolean(vad.errored) ||
-    !vad.ready ||
-    useSpaceHold;
+  // Space mode is driven from the keyboard; hold-mic mode only needs the recorder.
+  const micDisabled = useSpaceHold
+    ? true
+    : useMicHold
+      ? false
+      : vad.loading || Boolean(vad.errored) || !vad.ready;
 
   return (
     <div className="chat-shell">
@@ -1184,7 +1230,7 @@ export default function ChatApp() {
         <form className="composer" onSubmit={onSubmit}>
           <button
             type="button"
-            className={`btn mic ${vad.listening || holding ? "on" : ""} ${vad.userSpeaking ? "speaking" : ""}`}
+            className={`btn mic ${vad.listening || holding ? "on" : ""} ${(isPushToTalk ? pttRecording : vad.userSpeaking) ? "speaking" : ""}`}
             disabled={micDisabled}
             aria-pressed={vad.listening || holding}
             title={
@@ -1197,7 +1243,7 @@ export default function ChatApp() {
                     : "Start voice input"
             }
             onClick={
-              voiceMode === "auto" ? () => void vad.toggle() : undefined
+              voiceMode === "auto" ? toggleAutoMic : undefined
             }
             onPointerDown={
               useMicHold
@@ -1217,7 +1263,7 @@ export default function ChatApp() {
             }
           >
             {useMicHold
-              ? holding || vad.listening
+              ? holding
                 ? "Release"
                 : "Hold"
               : useSpaceHold

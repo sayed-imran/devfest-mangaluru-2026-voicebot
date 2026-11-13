@@ -11,6 +11,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource-variable/google-sans-code": "^5.3.2",
+    "@fontsource-variable/google-sans-flex": "^5.3.2",
     "@ricky0123/vad-react": "^0.0.37",
     "@ricky0123/vad-web": "^0.0.31",
     "next": "16.4.0",

@@ -46,7 +46,10 @@ _COMMAND = re.compile(
     rf"^{_LEAD_IN}(?:"
     r"open|launch|search|google|look\s+up|play|watch|listen\s+to|put\s+on|pull\s+up|bring\s+up|"
     r"take\s+me\s+to|navigate\s+to|go\s+to|"
-    r"(?:get|give\s+me|show\s+me)\s+(?:the\s+)?directions|directions\s+to|"
+    # "get me direction to…", "show me the route to…", "find the way to…", "directions to…"
+    r"(?:get|give|show|find)\s+(?:me\s+|us\s+)?(?:the\s+|some\s+)?(?:directions?|route|way)\s+(?:to|from|for|towards)\b|"
+    r"(?:get|show\s+me)\s+(?:the\s+)?directions$|"
+    r"directions?\s+(?:to|from|for)|route\s+(?:me\s+)?to|navigate\s+me\s+to|"
     r"show\s+(?:me\s+)?(?:.+\s+)?on\s+(?:the\s+|a\s+)?(?:map|maps|youtube|google)|"
     rf"(?:draft|compose|write|prepare|send|start)\s+{_MAIL}|"
     r"(?:e-?mail|mail)\s+(?!is\b|was\b|and\b)\w+"
@@ -64,7 +67,7 @@ _QUESTION = re.compile(
     re.IGNORECASE,
 )
 _TARGETS = re.compile(
-    r"\b(?:youtube|google|browser|chrome|firefox|edge|safari|gmail|e-?mail|mail|maps?|directions|"
+    r"\b(?:youtube|google|browser|chrome|firefox|edge|safari|gmail|e-?mail|mail|maps?|directions?|route|"
     r"website|site|calculator|notepad|text\s+editor|file\s+manager|terminal|settings)\b",
     re.IGNORECASE,
 )

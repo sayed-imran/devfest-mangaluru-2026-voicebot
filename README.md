@@ -103,8 +103,8 @@ Built on [vLLM](https://github.com/vllm-project/vllm) and
 [`@ricky0123/vad-web`](https://github.com/ricky0123/vad),
 [Kokoro](https://github.com/remsky/Kokoro-FastAPI),
 [Whisper](https://github.com/openai/whisper),
-[Laya](https://github.com/NandhaKishorM/laya) and the
-[Model Context Protocol](https://modelcontextprotocol.io).
+[Laya](https://github.com/NandhaKishorM/laya), the
+[Model Context Protocol](https://modelcontextprotocol.io), and the
 
 An earlier version of this workshop ran at Open Source India 2026 as *The Open Source Jarvis*:
 [sayed-imran/open-source-india-voicebot](https://github.com/sayed-imran/open-source-india-voicebot).

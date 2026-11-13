@@ -35,46 +35,46 @@ export function pickHandoffLine() {
   );
 }
 
+const NUMBER_WORDS =
+  "four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|[4-9]|[1-9]\\d{1,2}";
+
 /**
- * Guess from the *user request* whether the answer should be chat-first.
- * Used when Laya is offline.
+ * Explicit long-form requests: the user has asked for something that is tedious to hear
+ * read aloud, whatever Laya's score says. Plain questions ("what is the capital of…",
+ * "how do I…") are deliberately NOT here: those should be spoken, and the safety net in
+ * applySpeakDecision still hands off if the reply turns out long or structured.
+ */
+export function strongHandoffCue(userText: string): boolean {
+  const t = userText.trim().toLowerCase();
+  if (!t) return false;
+
+  const patterns = [
+    // written artefacts
+    /\b(essay|report|write[- ]?up|blog( post)?|article|documentation|cover letter|long[- ]form)\b/,
+    /\b(in detail|detailed|thorough(ly)?|comprehensive|in depth|step[- ]by[- ]step|tutorial|walkthrough)\b/,
+    /\b\d{3,}\s*words?\b/,
+    // code
+    /\b(write|give|show|generate|create)\b.*\b(code|function|script|program|snippet|regex|sql|class|implementation)\b/,
+    /\b(source code|code sample)\b/,
+    // comparisons, overviews, summaries
+    /\b(compare|comparison|pros and cons|difference between|differences between|vs\.?|versus)\b/,
+    /\b(history of|overview of|summari[sz]e|summary of|key ideas)\b/,
+    // long lists ("list ten…", "top 5…", "twenty places…"); short lists like "three tips" stay spoken
+    new RegExp(`\\b(list|top)\\b.*\\b(${NUMBER_WORDS})\\b`),
+    new RegExp(`\\b(${NUMBER_WORDS})\\s+(places|things|ways|tips|ideas|steps|examples|reasons|books|movies|questions)\\b`),
+  ];
+
+  return patterns.some((re) => re.test(t));
+}
+
+/**
+ * Fallback when Laya is offline or slow: explicit long-form cues, or a very long request.
  */
 export function heuristicUserWantsHandoff(userText: string): boolean {
   const cleaned = userText.trim();
   if (!cleaned) return false;
-
-  const t = cleaned.toLowerCase();
-  const words = wordCount(cleaned);
-
-  if (
-    /\b(essay|report|write[- ]?up|blog|article|documentation|detailed|in detail|thorough|comprehensive|long[- ]form|\d{3,}\s*words?|bullet|step[- ]by[- ]step|tutorial|walkthrough|implement|architecture|code sample|source code)\b/.test(
-      t,
-    )
-  ) {
-    return true;
-  }
-
-  if (
-    /\b(tell me about|explain|describe|summarize|compare|history of|how (do|does|can|to)|what (are|is) the)\b/.test(
-      t,
-    ) &&
-    words >= 3
-  ) {
-    return true;
-  }
-
-  if (words >= 35) return true;
-
-  if (
-    words <= 8 &&
-    /\b(hi|hello|hey|thanks|thank you|ok|okay|yes|no|bye|good (morning|night)|how are you)\b/.test(
-      t,
-    )
-  ) {
-    return false;
-  }
-
-  return false;
+  if (strongHandoffCue(cleaned)) return true;
+  return wordCount(cleaned) >= 35;
 }
 
 /** Safety net on a finished assistant reply (speak-all path only). */

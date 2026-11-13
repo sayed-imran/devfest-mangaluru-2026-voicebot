@@ -4,9 +4,12 @@
  * https://github.com/NandhaKishorM/laya
  */
 
+import { strongHandoffCue } from "@/lib/partition";
+
 const LAYA_BASE_URL = process.env.LAYA_BASE_URL ?? "http://spark-065b.local:8002";
 const LAYA_TIMEOUT_MS = Number(process.env.LAYA_TIMEOUT_MS ?? 2500);
-const LAYA_DETAIL_THRESHOLD = Number(process.env.LAYA_SPEAK_THRESHOLD ?? 0.55);
+/** Laya's "needs a detailed write-up" score at or above this → handoff to chat. */
+const LAYA_DETAIL_THRESHOLD = Number(process.env.LAYA_SPEAK_THRESHOLD ?? 0.5);
 
 export type LayaDeliveryDecision = {
   /** true → fully speak the (expected short) reply; false → chat handoff */
@@ -16,19 +19,17 @@ export type LayaDeliveryDecision = {
   raw?: unknown;
 };
 
-/** Intent questions over the user utterance only. */
+/**
+ * One question over the user utterance only.
+ *
+ * An earlier version also asked a speak-vs-handoff "choice" question whose criteria said
+ * "when unsure, choose handoff". Measured on the Spark it chose handoff for almost every
+ * plain question ("What is the capital of Karnataka?", "Who wrote Malgudi Days?") at ~0.55
+ * confidence, and doubled Laya's latency (~1 s vs ~0.2 s). This score alone separates
+ * quick facts (≈0.1-0.25) from write-ups (≈0.6+); strongHandoffCue covers explicit
+ * long-form requests (code, lists, comparisons) that the score under-rates.
+ */
 const USER_INTENT_QUESTIONS = {
-  delivery: {
-    type: "choice" as const,
-    instructions:
-      "A voice assistant just heard this user request. Should it plan to speak the eventual answer fully aloud, or only give a short spoken cue and put a detailed answer in chat?",
-    criteria: {
-      speak:
-        "User wants a short conversational reply: greeting, thanks, yes/no, quick fact, status, or a one-sentence clarification. Comfortable to hear in under ~12 seconds.",
-      handoff:
-        "User is asking for something long or dense: essay, report, detailed explanation, tutorial, list, comparison, history overview, code, or anything that would be tedious to hear in full. When unsure, choose handoff.",
-    },
-  },
   needs_detailed_writeup: {
     type: "noul" as const,
     instructions:
@@ -96,51 +97,23 @@ export async function decideDeliveryFromUser(options: {
 
     const data = (await res.json()) as {
       answers?: {
-        delivery?: {
-          choice?: string;
-          answer_confidence?: number;
-          confidence?: number;
-        };
-        needs_detailed_writeup?: {
-          noul?: number;
-          answer_confidence?: number;
-        };
+        needs_detailed_writeup?: { noul?: number };
       };
     };
 
-    const choice = data.answers?.delivery?.choice?.toLowerCase();
-    const detailNoul = Number(
-      data.answers?.needs_detailed_writeup?.noul ?? NaN,
-    );
+    const detailNoul = Number(data.answers?.needs_detailed_writeup?.noul ?? NaN);
+    if (!Number.isFinite(detailNoul)) return null;
+
     const detailThreshold = Number.isFinite(LAYA_DETAIL_THRESHOLD)
       ? LAYA_DETAIL_THRESHOLD
-      : 0.55;
-
-    let speakFully: boolean;
-    let confidence: number;
-
-    if (choice === "speak" || choice === "handoff") {
-      const choiceSaysSpeak = choice === "speak";
-      const detailSaysHandoff =
-        Number.isFinite(detailNoul) && detailNoul >= detailThreshold;
-      // Speak only when choice says speak AND the request does not look detailed.
-      speakFully = choiceSaysSpeak && !detailSaysHandoff;
-      confidence = Number(
-        data.answers?.delivery?.answer_confidence ??
-          data.answers?.delivery?.confidence ??
-          (Number.isFinite(detailNoul) ? 1 - detailNoul : 0.5),
-      );
-    } else if (Number.isFinite(detailNoul)) {
-      speakFully = detailNoul < detailThreshold;
-      confidence = detailNoul;
-    } else {
-      return null;
-    }
+      : 0.5;
+    const cue = strongHandoffCue(user);
+    const speakFully = detailNoul < detailThreshold && !cue;
 
     return {
       speakFully,
-      confidence,
-      choice: choice ?? (speakFully ? "speak" : "handoff"),
+      confidence: speakFully ? 1 - detailNoul : Math.max(detailNoul, cue ? 0.9 : 0),
+      choice: speakFully ? "speak" : cue ? "handoff (long-form cue)" : "handoff",
       raw: data.answers,
     };
   } catch {
