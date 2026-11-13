@@ -8,7 +8,7 @@ quantization is what makes the choice interesting.
 | Model | Parameters | Context | Audio in | Best for |
 | --- | --- | --- | --- | --- |
 | E2B | 2.3B effective (5.1B with embeddings) | 128K | yes | Phones, Raspberry Pi, 8GB laptops |
-| E4B | 4.5B effective (8B with embeddings) | 128K | yes | The workshop laptop default |
+| E4B | 4.5B effective (8B with embeddings) | 128K | yes | Small enough for a laptop; not used in this workshop |
 | 12B Unified | 11.95B, encoder-free | 256K | yes | 16GB GPU or unified memory |
 | 26B A4B | 25.2B total, **3.8B active** (MoE) | 256K | no | DGX Spark, workstations |
 | 31B Dense | 30.7B | 256K | no | 32GB+ GPU |
@@ -51,18 +51,19 @@ The honest framing for the workshop:
 
 Measure it rather than assuming it. `bench/` runs the same prompts across precisions and machines.
 
-## Picking for the room
+## Why the workshop uses the 26B on the Spark
 
-| Hardware | Model | Precision | Why |
+| Option | Fits a shared Spark? | Audio in | Notes |
 | --- | --- | --- | --- |
-| Raspberry Pi 5 | E2B | QAT 4-bit | Fits in RAM with room for the OS |
-| Laptop, 16GB, no GPU | E4B | QAT 4-bit | ~2.5 GB resident, conversational on CPU |
-| Laptop, 16GB, with GPU | E4B | 4-bit or 8-bit | GPU backend, headroom for Kokoro |
-| DGX Spark, 128GB unified | 26B A4B | 8-bit | 28.8 GB resident, 3.8B active per token |
+| 26B A4B, FP8 | yes, ~29 GB weights | no | **The workshop model.** 3.8B active per token, so it decodes fast under batching; Whisper handles audio |
+| 31B Dense, FP8 | yes, ~35 GB | no | Stronger, but every token touches all 31B: slower per user on a bandwidth-bound box |
+| E4B | yes, ~9 GB | yes | Could do STT itself, but is noticeably weaker at tool calling than the 26B |
+
+All of it lives on the Spark. Attendee laptops never load a model.
 
 ## Sources
 
 - [Gemma 4 model overview](https://ai.google.dev/gemma/docs/core)
 - [Gemma 4 model card](https://ai.google.dev/gemma/docs/core/model_card_4)
 - [Gemma 4 announcement](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/)
-- [LiteRT-LM overview](https://ai.google.dev/edge/litert-lm/overview)
+- [vLLM Gemma 4 recipe](https://docs.vllm.ai/projects/recipes/en/stable/Google/Gemma4.html)

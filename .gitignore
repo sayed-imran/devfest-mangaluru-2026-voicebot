@@ -5,3 +5,4 @@ __pycache__/
 
 # benchmark output is machine-specific; keep the folder, not the results
 bench/results/*.json
+spark/.env

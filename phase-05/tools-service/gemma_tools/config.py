@@ -88,11 +88,11 @@ def get_settings() -> Settings:
         allowed_hosts=tuple(
             h.strip() for h in _str("TOOLS_ALLOWED_HOSTS").split(",") if h.strip()
         ),
-        llm_base_url=_str("LLM_BASE_URL", "http://127.0.0.1:8081").rstrip("/"),
-        llm_model=_str("LLM_MODEL", "gemma4-e4b"),
+        llm_base_url=_str("LLM_BASE_URL", "http://spark-065b.local:8081").rstrip("/"),
+        llm_model=_str("LLM_MODEL", "gemma4-26b"),
         llm_api_key=_str("LLM_API_KEY"),
         llm_timeout_s=_float("LLM_TIMEOUT_S", 90.0),
-        laya_base_url=_str("LAYA_BASE_URL", "http://localhost:8002").rstrip("/"),
+        laya_base_url=_str("LAYA_BASE_URL", "http://spark-065b.local:8002").rstrip("/"),
         laya_timeout_ms=max(300, _int("LAYA_TIMEOUT_MS", 2500)),
         route_threshold=min(0.95, max(0.05, _float("TOOLS_ROUTE_THRESHOLD", 0.5))),
         mcp_config=mcp_config,

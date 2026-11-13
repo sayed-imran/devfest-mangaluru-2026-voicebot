@@ -24,32 +24,26 @@ Mic / text → STT → Next.js /api/partition
 
 ## Where things run
 
-Everything is on your own computer in this phase. Phase 06 moves the model off it.
+Every model is on the Spark. The tools service is the one Python process on your laptop, and it
+holds no model: it opens things on your screen and calls Gemma and Laya over the LAN.
 
 | What | Where | Port |
 | --- | --- | --- |
-| Gemma 4 (LiteRT-LM) | your machine | 8081 |
-| STT | same LiteRT-LM server | 8081 |
-| Kokoro TTS, Laya | docker, your machine | 8880, 8002 |
-| Tools service | your machine | 8765 |
-| Web app | your machine | 3004 |
+| Gemma 4 26B A4B (vLLM, tool calling) | Spark | 8081 |
+| Whisper (vLLM) | Spark | 8001 |
+| Kokoro TTS, Laya | Spark | 8880, 8002 |
+| Tools service (no model) | your laptop | 8765 |
+| Web app | your laptop | 3004 |
 
-The tools service must run on the computer whose screen should show the browser — it cannot open
-windows on a headless server, and it says so in `/health`.
+The tools service has to run on the computer whose screen should show the browser. It cannot open
+windows on the Spark, and `/health` reports that.
 
-## 1. Model and supporting services
+## 1. Tool calling on the Spark
 
-```bash
-./litert/serve.sh                 # Gemma 4 E4B on :8081
-
-cd phase-05
-docker compose up -d --build      # Kokoro (CPU) + Laya (CPU)
-```
-
-Tool calling needs no special server flag here. LiteRT-LM's Tool Use path returns structured
-`tool_calls`, and when a server instead leaves Gemma's native
-`<|tool_call>call:name{…}<tool_call|>` text in the message body, the tools service parses it
-(`gemma_tools/llm.py`). The same agent therefore runs against the laptop and the Spark unchanged.
+The Spark runs vLLM with `--enable-auto-tool-choice --tool-call-parser gemma4`
+([../spark/docker-compose.yml](../spark/docker-compose.yml)), so Gemma's tool calls come back as
+structured `tool_calls`. If a server leaves Gemma's native `<|tool_call>call:name{…}<tool_call|>`
+text in the message body instead, the tools service parses that too (`gemma_tools/llm.py`).
 
 ## 2. Tools service
 
@@ -59,7 +53,7 @@ is often 3.9).
 ```bash
 cd phase-05/tools-service
 cp .env.example .env          # Windows: copy .env.example .env
-# edit .env if your model is not on 127.0.0.1:8081
+# edit .env if spark-065b.local does not resolve: use the Spark's IP
 ```
 
 | OS | Start |
@@ -130,10 +124,10 @@ If the tools service is off or unreachable, every turn is chat (phase 04 behavio
 
 ## A note on quantization and tool calls
 
-Tool arguments are the first thing to break when you quantize too hard. Chat degrades gracefully;
-strict JSON does not. If the agent starts emitting malformed arguments after you drop a precision
-level, that is the signal, not a bug in the agent. Try `gemma4-e4b` at 8-bit before blaming the
-prompt. [../litert/models.md](../litert/models.md) has the numbers.
+Quantization breaks tool arguments first. Chat degrades gracefully, but strict JSON does not. The
+Spark serves the 26B at FP8, which holds up. If you see malformed arguments after someone lowers
+the precision, the quantization is the cause, not the agent. [../spark/models.md](../spark/models.md)
+has the numbers.
 
 ## Config
 
@@ -143,9 +137,9 @@ prompt. [../litert/models.md](../litert/models.md) has the numbers.
 TOOLS_HOST=127.0.0.1             # anything else requires TOOLS_API_KEY
 TOOLS_PORT=8765
 TOOLS_API_KEY=
-LLM_BASE_URL=http://127.0.0.1:8081
-LLM_MODEL=gemma4-e4b
-LAYA_BASE_URL=http://127.0.0.1:8002
+LLM_BASE_URL=http://spark-065b.local:8081
+LLM_MODEL=gemma4-26b
+LAYA_BASE_URL=http://spark-065b.local:8002
 TOOLS_ROUTE_THRESHOLD=0.5        # Laya P(action) for an action turn
 TOOLS_BROWSER=default            # default | chrome | edge | firefox | brave | safari
 TOOLS_SEARCH_ENGINE=google       # google | bing | duckduckgo
@@ -189,6 +183,7 @@ optional here, and the allow-list is the interesting design decision in this pha
 | Tools offline in the header | Start the tools service; check `TOOLS_BASE_URL`. Chat keeps working meanwhile. |
 | Gemma replies with `<\|tool_call>` text in chat | The tools service parses that form, so this means the turn went down the plain chat path. Check `/v1/route`. |
 | Malformed tool arguments | Quantized too far. See the note above. |
+| `LLM unreachable` in `/health` | `LLM_BASE_URL` in `tools-service/.env` must point at the Spark, not localhost. |
 | macOS: "Python 3.10+ is required" | Install Python from python.org or Homebrew, or `PYTHON=python3.12 ./start.sh`. |
 | Test without opening anything | `start.sh --dry-run` / `start.cmd --dry-run`; replies end with "(Dry run…)". |
 

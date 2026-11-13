@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Phase 03 · Hey Gemma, No Internet · Chat",
   description:
-    "Voice + text chat with Silero VAD and Gemma 4 running locally on LiteRT-LM.",
+    "Speak to Gemma 4 on a DGX Spark in the room and read its reply: Silero VAD, Whisper STT, text-only answers.",
 };
 
 export default function RootLayout({

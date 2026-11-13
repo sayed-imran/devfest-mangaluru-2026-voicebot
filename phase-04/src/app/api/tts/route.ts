@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const TTS_BASE_URL = process.env.TTS_BASE_URL ?? "http://localhost:8880";
+const TTS_BASE_URL = process.env.TTS_BASE_URL ?? "http://spark-065b.local:8880";
 const TTS_VOICE = process.env.TTS_VOICE ?? "am_michael";
 const TTS_MODEL = process.env.TTS_MODEL ?? "kokoro";
 /** Kokoro speech rate. 1.0 = default; bump slightly for snappier replies. */

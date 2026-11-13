@@ -2,11 +2,11 @@
 """
 Benchmark one OpenAI-compatible endpoint: prefill, decode and time-to-first-token.
 
-Run it once per machine, keep the JSON, then compare:
+Run it at a few concurrency levels against the Spark, keep the JSON, then compare:
 
-    python bench.py --label "Raspberry Pi 5"  --base-url http://127.0.0.1:8081 --model gemma4-e2b
-    python bench.py --label "Laptop (CPU)"    --base-url http://127.0.0.1:8081 --model gemma4-e4b
-    python bench.py --label "DGX Spark"       --base-url http://spark-065b:8081 --model gemma4-26b
+    python bench.py --label "1 user"    --concurrency 1
+    python bench.py --label "8 users"   --concurrency 8
+    python bench.py --label "30 users"  --concurrency 30
 
     python bench.py --compare results/*.json
 
@@ -37,6 +37,7 @@ import platform
 import statistics
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -175,25 +176,39 @@ def bench(args) -> dict:
     print(f"Endpoint : {args.base_url}")
     print(f"Model    : {args.model}")
     print(f"Label    : {args.label}")
+    print(f"Parallel : {args.concurrency} simultaneous requests")
     print(f"Warmup   : {args.warmup}, runs per prompt: {args.runs}\n")
 
     for _ in range(args.warmup):
-        print("  warming up (first load optimises weights for this device) ...")
+        print("  warming up ...")
         run_prompt(args.base_url, args.model, "warmup", "Hi.", 16, args.timeout)
 
     samples: list[Sample] = []
     for prompt_id, prompt in prompts:
         for run in range(args.runs):
-            sample = run_prompt(
-                args.base_url, args.model, prompt_id, prompt, args.max_tokens, args.timeout
-            )
-            samples.append(sample)
+            # N requests fired together: what one attendee sees while the room is also talking.
+            with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
+                batch = list(
+                    pool.map(
+                        lambda _: run_prompt(
+                            args.base_url, args.model, prompt_id, prompt,
+                            args.max_tokens, args.timeout,
+                        ),
+                        range(args.concurrency),
+                    )
+                )
+            samples.extend(batch)
+            sample = batch[len(batch) // 2] if len(batch) > 1 else batch[0]
+            ttft = statistics.median(b.ttft_s for b in batch)
+            decode = statistics.median(b.decode_tok_s for b in batch)
+            prefill = statistics.median(b.prefill_tok_s for b in batch)
             flag = " (tokens estimated)" if sample.estimated_tokens else ""
             print(
                 f"  {prompt_id:<6} run {run + 1}/{args.runs}  "
-                f"ttft {sample.ttft_s * 1000:7.0f} ms   "
-                f"decode {sample.decode_tok_s:6.1f} tok/s   "
-                f"prefill {sample.prefill_tok_s:7.1f} tok/s{flag}"
+                f"ttft {ttft * 1000:7.0f} ms   "
+                f"decode {decode:6.1f} tok/s   "
+                f"prefill {prefill:7.1f} tok/s   "
+                f"(median of {len(batch)}){flag}"
             )
 
     def med(attr: str) -> float:
@@ -211,8 +226,12 @@ def bench(args) -> dict:
             "python": platform.python_version(),
         },
         "notes": args.notes,
+        "concurrency": args.concurrency,
         "median": {
-            "ttft_ms": round(med("ttft_s") * 1000, 1),
+            "ttft_ms": round(statistics.median(s.ttft_s for s in samples) * 1000, 1),
+            "ttft_p95_ms": round(
+                sorted(s.ttft_s for s in samples)[int(0.95 * (len(samples) - 1))] * 1000, 1
+            ),
             "decode_tok_s": med("decode_tok_s"),
             "prefill_tok_s": med("prefill_tok_s"),
             "total_s": med("total_s"),
@@ -222,6 +241,7 @@ def bench(args) -> dict:
     }
 
     print("\n  median ttft     %.0f ms" % result["median"]["ttft_ms"])
+    print("  p95 ttft        %.0f ms" % result["median"]["ttft_p95_ms"])
     print("  median decode   %.1f tok/s" % result["median"]["decode_tok_s"])
     print("  median prefill  %.1f tok/s" % result["median"]["prefill_tok_s"])
     if result["tokens_estimated"]:
@@ -242,8 +262,14 @@ def compare(paths: list[str]) -> None:
         print("No result files matched.", file=sys.stderr)
         raise SystemExit(1)
 
-    head = f"| {'Machine':<22} | {'Model':<12} | {'TTFT':>9} | {'Decode':>12} | {'Prefill':>13} |"
-    rule = f"| {'-' * 22} | {'-' * 12} | {'-' * 9} | {'-' * 12} | {'-' * 13} |"
+    head = (
+        f"| {'Run':<22} | {'Model':<12} | {'Users':>5} | {'TTFT':>9} | {'p95 TTFT':>9} "
+        f"| {'Decode':>12} | {'Prefill':>13} |"
+    )
+    rule = (
+        f"| {'-' * 22} | {'-' * 12} | {'-' * 5} | {'-' * 9} | {'-' * 9} "
+        f"| {'-' * 12} | {'-' * 13} |"
+    )
     print(head)
     print(rule)
     for row in rows:
@@ -251,7 +277,8 @@ def compare(paths: list[str]) -> None:
         star = " *" if row.get("tokens_estimated") else ""
         print(
             f"| {row['label'][:22]:<22} | {row['model'][:12]:<12} | "
-            f"{m['ttft_ms']:>6.0f} ms | {m['decode_tok_s']:>6.1f} tok/s | "
+            f"{row.get('concurrency', 1):>5} | {m['ttft_ms']:>6.0f} ms | "
+            f"{m.get('ttft_p95_ms', m['ttft_ms']):>6.0f} ms | {m['decode_tok_s']:>6.1f} tok/s | "
             f"{m['prefill_tok_s']:>7.1f} tok/s |{star}"
         )
     if any(r.get("tokens_estimated") for r in rows):
@@ -264,10 +291,12 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--base-url", default=os.environ.get("LLM_BASE_URL", "http://127.0.0.1:8081"))
-    parser.add_argument("--model", default=os.environ.get("LLM_MODEL", "gemma4-e4b"))
+    parser.add_argument("--base-url", default=os.environ.get("LLM_BASE_URL", "http://spark-065b.local:8081"))
+    parser.add_argument("--model", default=os.environ.get("LLM_MODEL", "gemma4-26b"))
     parser.add_argument("--label", default=platform.node() or "this machine",
                         help="How this machine appears in the comparison table")
+    parser.add_argument("--concurrency", type=int, default=1,
+                        help="Simultaneous requests per run, to simulate the room (default 1)")
     parser.add_argument("--runs", type=int, default=3, help="Runs per prompt (default 3)")
     parser.add_argument("--warmup", type=int, default=1, help="Warmup requests (default 1)")
     parser.add_argument("--max-tokens", type=int, default=160)
@@ -287,13 +316,13 @@ def main() -> None:
         result = bench(args)
     except urllib.error.URLError as exc:
         print(f"\nCould not reach {args.base_url}: {exc}", file=sys.stderr)
-        print("Is `litert-lm serve --port 8081` running on that machine?", file=sys.stderr)
+        print("Is the Spark up? Try ./spark/smoke.sh spark-065b.local", file=sys.stderr)
         raise SystemExit(1)
 
     out = args.out
     if not out:
         safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in args.label.lower())
-        out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", f"{safe}-{args.model}.json")
+        out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", f"{safe}-{args.model}-c{args.concurrency}.json")
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     with open(out, "w") as fh:
         json.dump(result, fh, indent=2)

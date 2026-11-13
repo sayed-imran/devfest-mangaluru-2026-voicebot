@@ -106,7 +106,7 @@ export default function ChatApp() {
   const [toolsReady, setToolsReady] = useState<boolean | null>(null);
   const [toolsInfo, setToolsInfo] = useState<ToolsInfo>({});
   const [sttModel, setSttModel] = useState("whisper-large-v3-turbo");
-  const [llmModel, setLlmModel] = useState("gemma4-e4b");
+  const [llmModel, setLlmModel] = useState("gemma4-26b");
   const [ttsVoice, setTtsVoice] = useState("am_michael");
   const [statusHint, setStatusHint] = useState<string | null>(null);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("auto");

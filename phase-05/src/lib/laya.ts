@@ -4,7 +4,7 @@
  * https://github.com/NandhaKishorM/laya
  */
 
-const LAYA_BASE_URL = process.env.LAYA_BASE_URL ?? "http://localhost:8002";
+const LAYA_BASE_URL = process.env.LAYA_BASE_URL ?? "http://spark-065b.local:8002";
 const LAYA_TIMEOUT_MS = Number(process.env.LAYA_TIMEOUT_MS ?? 2500);
 const LAYA_DETAIL_THRESHOLD = Number(process.env.LAYA_SPEAK_THRESHOLD ?? 0.55);
 

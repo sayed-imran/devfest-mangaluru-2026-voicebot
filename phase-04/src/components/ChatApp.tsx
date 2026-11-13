@@ -90,7 +90,7 @@ export default function ChatApp() {
   const [llmReady, setLlmReady] = useState<boolean | null>(null);
   const [ttsReady, setTtsReady] = useState<boolean | null>(null);
   const [sttModel, setSttModel] = useState("whisper-large-v3-turbo");
-  const [llmModel, setLlmModel] = useState("gemma4-e4b");
+  const [llmModel, setLlmModel] = useState("gemma4-26b");
   const [ttsVoice, setTtsVoice] = useState("am_michael");
   const [statusHint, setStatusHint] = useState<string | null>(null);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("auto");

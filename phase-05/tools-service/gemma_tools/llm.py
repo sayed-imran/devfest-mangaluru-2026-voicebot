@@ -1,14 +1,14 @@
-"""OpenAI-compatible chat client with tool calls (LiteRT-LM / vLLM, Gemma 4).
+"""OpenAI-compatible chat client with tool calls (vLLM on the DGX Spark, Gemma 4).
 
 Servers differ in how they surface a tool call:
 
-* LiteRT-LM's Tool Use path and vLLM with `--tool-call-parser gemma4` return
+* vLLM with `--enable-auto-tool-choice --tool-call-parser gemma4` returns
   structured `tool_calls` on the message.
 * Anything else leaves Gemma's native `<|tool_call>call:name{...}<tool_call|>`
   text sitting in `content`.
 
-Both are handled below, so the same agent runs against the laptop server and
-the Spark without a flag.
+Both are handled below, so the agent keeps working even if the Spark is
+started without the tool-call parser.
 """
 
 from __future__ import annotations

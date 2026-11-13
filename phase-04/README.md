@@ -8,7 +8,7 @@ word-synced chat text; handoffs put the full write-up on screen.
 ```
 Mic → Silero VAD → STT ─┐
 Text box ───────────────┤
-                        ├→ Gemma 4 via LiteRT-LM (:8081) → reply
+                        ├→ Gemma 4 on the Spark (:8081) → reply
                         │
      Laya (:8002) on user intent → speak vs handoff
                         │
@@ -18,40 +18,24 @@ Text box ───────────────┤
 
 ## Prerequisites
 
-The model still comes from LiteRT-LM on your own machine. Docker only brings up the pieces
-around it, and the defaults are CPU so a laptop can run all of this:
-
-```bash
-./litert/serve.sh                      # terminal 1: Gemma 4 E4B on :8081
-
-cd phase-04
-docker compose up -d --build           # terminal 2: Kokoro (CPU) + Laya (CPU)
-```
+Kokoro and Laya join Gemma and Whisper on the Spark. Your laptop still runs only the app, with
+no Docker and no model downloads.
 
 | Service | Where | Port | Notes |
 | --- | --- | --- | --- |
-| Gemma 4 | LiteRT-LM, your machine | 8081 | `./litert/serve.sh` |
-| STT | same LiteRT-LM server | 8081 | `STT_MODE=gemma` |
-| Kokoro TTS | docker | 8880 | 82M params, CPU is fine |
-| Laya | docker | 8002 | optional, CPU on purpose |
+| Gemma 4 26B A4B | Spark, vLLM | 8081 | |
+| Whisper | Spark, vLLM | 8001 | |
+| Kokoro TTS | Spark | 8880 | 82M params |
+| Laya | Spark | 8002 | optional, CPU on purpose |
 
-Variants:
-
-```bash
-docker compose --profile gpu up -d        # Kokoro on an NVIDIA GPU instead
-docker compose --profile whisper up -d    # add Whisper, for STT_MODE=whisper
-```
-
-Health checks:
+Health checks from your laptop:
 
 ```bash
-curl http://127.0.0.1:8081/v1/models
-curl http://localhost:8880/v1/models      # TTS web UI: http://localhost:8880/web/
-curl http://localhost:8002/health
+curl http://spark-065b.local:8880/v1/audio/voices   # TTS web UI: http://spark-065b.local:8880/web/
+curl http://spark-065b.local:8002/health
 ```
 
-First Laya boot downloads the English checkpoint into the `laya-hf-cache` volume (a few minutes).
-Laya is optional: leave `LAYA_BASE_URL` empty and a word-count heuristic takes over.
+Laya is optional. If `LAYA_BASE_URL` is empty, a word-count heuristic takes over.
 
 ## App
 
@@ -68,22 +52,21 @@ Open [http://localhost:3003](http://localhost:3003).
 `.env.local`:
 
 ```bash
-STT_MODE=gemma
-STT_GEMMA_BASE_URL=http://127.0.0.1:8081
-STT_GEMMA_MODEL=gemma4-e4b
+STT_BASE_URL=http://spark-065b.local:8001
+STT_MODEL=whisper-large-v3-turbo
 STT_LANGUAGE=en
 
-LLM_BASE_URL=http://127.0.0.1:8081
-LLM_MODEL=gemma4-e4b
+LLM_BASE_URL=http://spark-065b.local:8081
+LLM_MODEL=gemma4-26b
 
-TTS_BASE_URL=http://127.0.0.1:8880
+TTS_BASE_URL=http://spark-065b.local:8880
 TTS_VOICE=am_michael
 TTS_MODEL=kokoro
 TTS_SPEED=1.15                      # Kokoro rate (0.5-2.0)
 TTS_MAX_SPEAK_WORDS=45              # heuristic / hard-cap safety net
 NEXT_PUBLIC_TTS_REVEAL_LAG_MS=140   # raise if text still leads speech
 
-LAYA_BASE_URL=http://127.0.0.1:8002 # empty = skip Laya, use the heuristic
+LAYA_BASE_URL=http://spark-065b.local:8002 # empty = skip Laya, use the heuristic
 LAYA_TIMEOUT_MS=2500
 LAYA_SPEAK_THRESHOLD=0.7
 ```
@@ -123,4 +106,6 @@ two sentences ago. Try interrupting it mid-sentence; then look at `src/lib/playb
 2. Not every token should be spoken. A System-1 model can decide delivery in ~0.2s without a
    second LLM call.
 3. Word timestamps make the chat feel like live speech rather than dump-then-play.
-4. Kokoro is 82M parameters and runs on a CPU. The expensive part of a voice agent is not the voice.
+4. Kokoro is 82M parameters. On the Spark it is a rounding error next to Gemma. The expensive part
+   of a voice agent is not the voice.
+5. Wear headphones. With thirty laptops in one room, barge-in will also pick up your neighbour.

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://127.0.0.1:8081";
-const LLM_MODEL = process.env.LLM_MODEL ?? "gemma4-e4b";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://spark-065b.local:8081";
+const LLM_MODEL = process.env.LLM_MODEL ?? "gemma4-26b";
 
 const MEMORY_HINT =
   "You receive the full conversation so far. Use earlier turns for continuity. If the user asks what they asked previously / last / before this, they mean the earlier user message — not the current one.";

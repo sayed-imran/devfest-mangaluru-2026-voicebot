@@ -46,7 +46,7 @@ export default function ChatApp() {
   const [sttReady, setSttReady] = useState<boolean | null>(null);
   const [llmReady, setLlmReady] = useState<boolean | null>(null);
   const [sttModel, setSttModel] = useState("whisper-large-v3-turbo");
-  const [llmModel, setLlmModel] = useState("gemma4-e4b");
+  const [llmModel, setLlmModel] = useState("gemma4-26b");
   const [statusHint, setStatusHint] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -315,7 +315,7 @@ export default function ChatApp() {
     <div className="chat-shell">
       <header className="chat-header">
         <div className="chat-brand">
-          <p className="eyebrow">Phase 03 · VAD + STT + Gemma 4</p>
+          <p className="eyebrow">Phase 03 · Voice in, text out</p>
           <h1>Hey Gemma, No Internet</h1>
         </div>
         <div className="health-row" aria-label="Service health">
@@ -354,9 +354,9 @@ export default function ChatApp() {
           {messages.length === 0 ? (
             <div className="empty-state">
               <p>
-                Type a message, or turn on the mic and talk. Silero cuts speech,
-                Whisper transcribes, Gemma 4 replies. You can interrupt anytime
-                with new text or speech.
+                Turn on the mic and ask something. Silero cuts your speech,
+                Whisper turns it into text, and Gemma 4 replies in text. You can
+                also type, and interrupt anytime with new speech or text.
               </p>
             </div>
           ) : (

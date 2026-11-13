@@ -30,7 +30,7 @@ export default function VadSttDemo() {
   const [speechProb, setSpeechProb] = useState(0);
   const [eventLog, setEventLog] = useState<string[]>([]);
   const [sttReady, setSttReady] = useState<boolean | null>(null);
-  const [sttModel, setSttModel] = useState("openai/whisper-large-v3-turbo");
+  const [sttModel, setSttModel] = useState("whisper-large-v3-turbo");
 
   const pushLog = useCallback((message: string) => {
     const stamp = new Date().toLocaleTimeString([], {
@@ -141,9 +141,9 @@ export default function VadSttDemo() {
         <p className="eyebrow">Phase 02 · VAD + speech to text</p>
         <h1 className="brand">Hey Gemma, No Internet</h1>
         <p className="lede">
-          Silero cuts your speech into utterances in the browser, then Gemma 4
-          turns each clip into text on the same LiteRT-LM server that will do the
-          reasoning. Switch STT_MODE to compare it against Whisper.
+          Silero cuts your speech into utterances in the browser, then each clip
+          goes to Whisper on the DGX Spark in the room. No audio leaves the local
+          network.
         </p>
 
         <div
@@ -225,8 +225,8 @@ export default function VadSttDemo() {
             <strong>Mic + Silero VAD</strong> — browser-side speech segments
           </li>
           <li>
-            <strong>Speech to text</strong> — Gemma 4 native audio via
-            LiteRT-LM (:8081), or <code>whisper-large-v3-turbo</code> (:8001)
+            <strong>Speech to text</strong> —{" "}
+            <code>whisper-large-v3-turbo</code> via vLLM on the Spark (:8001)
           </li>
           <li>
             <strong>Transcript</strong> — text ready for the LLM phase next

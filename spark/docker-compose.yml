@@ -1,0 +1,133 @@
+# Everything the workshop needs that is a model. Runs ON THE DGX SPARK; attendee laptops run
+# only the Next.js app (and, from phase 05, the tools service, which holds no model).
+#
+#   ssh spark-065b.local
+#   cd spark
+#   cp .env.example .env           # set HF_TOKEN (Gemma is gated), adjust image if needed
+#   docker compose up -d
+#   ./smoke.sh                     # checks every endpoint the way a laptop will
+#
+#   Port   Service                                      Used from
+#   8081   Gemma 4 26B A4B (vLLM, OpenAI chat + tools)   phase 03+
+#   8001   Whisper large-v3-turbo (vLLM, transcription)  phase 02+
+#   8880   Kokoro TTS (OpenAI /v1/audio/speech)          phase 04+
+#   8002   Laya speak-vs-handoff classifier              phase 04+ (optional)
+#
+# Memory: the GB10 has 128 GB unified between CPU and GPU. vLLM's --gpu-memory-utilization is a
+# fraction of that whole pool, so the two vLLM fractions below must leave room for Kokoro, Laya
+# and the OS. 0.55 + 0.10 leaves ~45 GB.
+
+x-vllm: &vllm
+  image: ${VLLM_IMAGE:-vllm/vllm-openai:latest}
+  ipc: host
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+  volumes:
+    - ${HF_CACHE:-~/.cache/huggingface}:/root/.cache/huggingface
+  environment:
+    - HF_TOKEN=${HF_TOKEN:-}
+    # After the first successful start, set HF_HUB_OFFLINE=1 in .env so nothing reaches the
+    # internet during the workshop.
+    - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-0}
+    # vLLM sends anonymous usage stats by default. Off: nothing leaves the Spark.
+    - VLLM_NO_USAGE_STATS=1
+    - DO_NOT_TRACK=1
+  restart: unless-stopped
+
+services:
+  # ── Reasoning + tool calling: Gemma 4 26B A4B ──────────────────────────────
+  # MoE, 3.8B active per token: decodes like a 4B model, which is what lets one box serve a room.
+  # FP8 keeps weights near 29 GB; the rest of the fraction is KV cache shared by every attendee.
+  llm:
+    <<: *vllm
+    container_name: spark-llm
+    ports:
+      - "8081:8000"
+    command:
+      - ${LLM_HF_MODEL:-google/gemma-4-26B-A4B-it}
+      - --served-model-name=gemma4-26b
+      - --quantization=fp8
+      - --gpu-memory-utilization=${LLM_GPU_MEM:-0.55}
+      - --max-model-len=${LLM_MAX_LEN:-16384}
+      - --max-num-seqs=${LLM_MAX_SEQS:-48}
+      - --enable-auto-tool-choice
+      - --tool-call-parser=gemma4
+      - --host=0.0.0.0
+      - --port=8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/v1/models || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 900s
+      retries: 5
+
+  # ── Speech-to-text: Whisper large-v3-turbo ─────────────────────────────────
+  stt:
+    <<: *vllm
+    container_name: spark-stt
+    ports:
+      - "8001:8000"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        pip install --no-cache-dir soundfile av soxr 2>/dev/null || true
+        exec vllm serve openai/whisper-large-v3-turbo \
+          --served-model-name whisper-large-v3-turbo \
+          --gpu-memory-utilization ${STT_GPU_MEM:-0.10} \
+          --max-model-len 448 \
+          --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/v1/models || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 600s
+      retries: 5
+
+  # ── Text-to-speech: Kokoro ─────────────────────────────────────────────────
+  # Web UI for testing: http://spark-065b.local:8880/web/
+  # If this image has no arm64 build for your tag, set KOKORO_IMAGE to the -cpu variant;
+  # Kokoro is 82M parameters and the Grace cores handle a room of short replies fine.
+  tts:
+    image: ${KOKORO_IMAGE:-ghcr.io/remsky/kokoro-fastapi-gpu:latest}
+    container_name: spark-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ports:
+      - "8880:8880"
+    restart: unless-stopped
+
+  # ── Speak vs handoff: Laya System-1 ────────────────────────────────────────
+  # CPU on purpose: it is tiny and must not contend with Gemma for unified memory.
+  laya:
+    build:
+      context: ./laya-service
+    container_name: spark-laya
+    ports:
+      - "8002:8000"
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-0}
+      - LAYA_DEVICE=cpu
+      - LAYA_MODELS=english
+      - LAYA_DEFAULT_MODEL=english
+      - LAYA_PRELOAD=1
+      - LAYA_MAX_LOADED=1
+      - OMP_NUM_THREADS=4
+      - TORCH_DISABLE_NATIVE_JIT=1
+    volumes:
+      - laya-hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+volumes:
+  laya-hf-cache:

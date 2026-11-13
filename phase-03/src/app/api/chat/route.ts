@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://127.0.0.1:8081";
-const LLM_MODEL = process.env.LLM_MODEL ?? "gemma4-e4b";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://spark-065b.local:8081";
+const LLM_MODEL = process.env.LLM_MODEL ?? "gemma4-26b";
 
+// Phase 03 is voice in, text out: the user may speak (Whisper transcribes it) or type,
+// and the reply is only ever shown as text in the chat. Speech output arrives in phase 04.
 const SYSTEM_PROMPT =
   process.env.LLM_SYSTEM_PROMPT ??
-  "You are Gemma, a helpful open-source voice assistant. Keep answers concise and conversational unless the user asks for detail.";
+  [
+    "You are Gemma, a helpful open-source assistant.",
+    "User messages may come from speech recognition, so they can contain small transcription mistakes; infer the intended meaning.",
+    "Your reply is shown as plain text in a chat window. Write plain sentences without Markdown headings, tables or code fences.",
+    "Keep answers concise unless the user asks for detail.",
+  ].join(" ");
 
 type IncomingMessage = {
   role: "user" | "assistant" | "system";
