@@ -27,7 +27,7 @@ If `spark-065b.local` does not resolve, use the IP on the slide and put it in `.
 
 ```bash
 cd phase-02
-npm install
+npm install                       # once, at the repo root: installs every phase
 npm run dev
 ```
 

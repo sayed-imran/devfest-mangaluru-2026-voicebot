@@ -42,9 +42,10 @@ Mic ─▶ Silero VAD ─▶ speech to text ─▶ Gemma 4 ─▶ tools (MCP) �
 ## Before the workshop
 
 1. **Node 20+**. Add **Python 3.10+** if you want to do phase 05 (tools).
-2. **Clone and `npm install` the phases on wifi beforehand.** That is the only download.
+2. **Clone and run `npm install` once at the repo root, on wifi, beforehand.** That is the only download.
+   The phases are npm workspaces, so this single install fills one shared `node_modules` for all five.
    ```bash
-   for p in phase-0*; do (cd "$p" && npm install); done
+   npm install
    ```
    For phase 05, also run `phase-05/tools-service/start.sh` (Windows: `start.cmd`) once on wifi,
    so it can install its Python packages.
@@ -59,6 +60,8 @@ No Docker, no model downloads, no GPU. The presenter brings the Spark.
 cd phase-03
 npm run dev                       # http://localhost:3002
 ```
+
+Or from the repo root: `npm run dev:03` (likewise `dev:01` … `dev:05`).
 
 Allow the microphone and start talking. The header shows each service on the Spark going green
 as it connects. If `spark-065b.local` doesn't resolve on the room network, replace it with the IP on the

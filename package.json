@@ -1,0 +1,19 @@
+{
+  "name": "devfest-mangaluru-voicebot",
+  "private": true,
+  "workspaces": [
+    "phase-01",
+    "phase-02",
+    "phase-03",
+    "phase-04",
+    "phase-05"
+  ],
+  "scripts": {
+    "assets": "npm run assets --workspaces",
+    "dev:01": "npm run dev -w phase-01",
+    "dev:02": "npm run dev -w phase-02",
+    "dev:03": "npm run dev -w phase-03",
+    "dev:04": "npm run dev -w phase-04",
+    "dev:05": "npm run dev -w phase-05"
+  }
+}

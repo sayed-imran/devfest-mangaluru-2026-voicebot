@@ -80,7 +80,7 @@ Interactive API docs: `http://127.0.0.1:8765/docs`.
 
 ```bash
 cd phase-05
-npm install
+npm install                       # once, at the repo root: installs every phase
 npm run dev
 ```
 

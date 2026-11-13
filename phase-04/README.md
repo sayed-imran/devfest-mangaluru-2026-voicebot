@@ -41,7 +41,7 @@ Laya is optional. If `LAYA_BASE_URL` is empty, a word-count heuristic takes over
 
 ```bash
 cd phase-04
-npm install
+npm install                       # once, at the repo root: installs every phase
 npm run dev
 ```
 

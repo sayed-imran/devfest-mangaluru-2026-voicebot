@@ -16,7 +16,7 @@ Later phases can feed those segments into STT, an LLM, and TTS.
 
 ```bash
 cd phase-01
-npm install          # also copies ONNX / WASM / worklet into public/vad
+npm install          # once, at the repo root (cd ..). Also copies ONNX / WASM / worklet into public/vad
 npm run dev
 ```
 
@@ -39,6 +39,6 @@ Open [http://localhost:3000](http://localhost:3000), allow the mic, then **Start
 
 ## Notes
 
-- Assets under `public/vad/` are generated (gitignored). Always run `npm install` or `npm run assets` after a fresh clone.
+- Assets under `public/vad/` are generated (gitignored). Always run `npm install` (at the repo root) or `npm run assets` after a fresh clone.
 - HTTPS or `localhost` is required for `getUserMedia`.
 - Model default: Silero **v5** (`model: "v5"` in `VadDemo.tsx`). You can switch to `"v6"` or `"legacy"`.

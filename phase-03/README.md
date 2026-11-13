@@ -37,7 +37,7 @@ curl http://spark-065b.local:8081/v1/models
 
 ```bash
 cd phase-03
-npm install
+npm install                       # once, at the repo root: installs every phase
 npm run dev
 ```
 
